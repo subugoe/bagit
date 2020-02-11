@@ -15,8 +15,16 @@ import (
 
 // Create creates a new bagit archive
 func (b *Bagit) Create(verbose bool) error {
+	return b.Create_without_root(verbose, false)
+}
+
+// Create creates a new bagit archive
+func (b *Bagit) Create_without_root(verbose bool, skip_root bool) error {
 
 	var err error
+	var first = true
+	var skip_dir_name string
+	var out_path string
 
 	var mapheader map[string]interface{}
 	if len(*b.AddHeader) != 0 {
@@ -67,19 +75,40 @@ func (b *Bagit) Create(verbose bool) error {
 
 	// copy source to data dir in new bag, calculate oxum and count bytes of payload
 	err = filepath.Walk(*b.SrcDir, func(path string, info os.FileInfo, err error) error {
+
+		out_path = path
+
+		if first {
+			if skip_root {
+				skip_dir_name = path
+			}
+			first = false
+		} else {
+			if skip_root {
+				i := strings.Index(path, "/")
+				out_path = path[i+1 : len(path)]
+			}
+		}
+
+		if info.IsDir() && info.Name() == skip_dir_name {
+			return nil
+		}
+
 		if !info.IsDir() {
 			b.Oxum.Filecount++
 			fsize, err := os.Stat(path)
 			e(err)
 			b.Oxum.Bytes += fsize.Size()
 			// normalizing path separators
-			normpath := strings.Replace(path, string(os.PathSeparator), "/", -1)
+			normpath := strings.Replace(out_path, string(os.PathSeparator), "/", -1)
 			//_, err = fm.WriteString(hex.EncodeToString(hashit(path, *b.HashAlg)) + " data/" + path + "\n")
 			_, err = fm.WriteString(hex.EncodeToString(hashit(path, *b.HashAlg)) + " data/" + normpath + "\n")
-			copy(path, *b.OutDir+"/data/"+path)
+			//log.Printf("file path %s\n", *b.OutDir+"/data/"+out_path)
+			copy(path, *b.OutDir+"/data/"+out_path)
 
 		} else {
-			os.MkdirAll(*b.OutDir+"/data/"+path, 0700)
+			//log.Printf("dir path %s\n", *b.OutDir+"/data/"+out_path)
+			os.MkdirAll(*b.OutDir+"/data/"+out_path, 0700)
 		}
 		return nil
 	})
@@ -121,7 +150,7 @@ func (b *Bagit) Create(verbose bool) error {
 
 	// write bag-info.txt
 	oxumbytes := int(b.Oxum.Bytes)
-	_, err = fi.WriteString("Bag-Software-Agent: bagit <https://github.com/steffenfritz/bagit>\n")
+	_, err = fi.WriteString("Bag-Software-Agent: bagit <https://github.com/subugoe/bagit> (fork of <https://github.com/steffenfritz/bagit>)\n")
 	_, err = fi.WriteString("Bagging-Date: " + b.Timestamp + "\n")
 	_, err = fi.WriteString("Payload-Oxum: " + strconv.Itoa(oxumbytes) + "." + strconv.Itoa(b.Oxum.Filecount) + "\n")
 
