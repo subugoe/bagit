@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/steffenfritz/bagit"
+	"github.com/subugoe/bagit"
 )
 
 const version = "0.4.0"
@@ -21,6 +21,7 @@ func main() {
 	b.SrcDir = flag.String("create", "", "Create bag. Expects path to source directory")
 	b.OutDir = flag.String("output", "bag_"+starttime, "Output directory for bag. Used with create flag")
 	tarit := flag.Bool("tar", false, "Create a tar archive when creating a bag")
+	zipit := flag.Bool("zip", false, "Create a zip archive when creating a bag")
 	b.HashAlg = flag.String("hash", "sha512", "Hash algorithm used for manifest file when creating a bag [sha1, sha256, sha512, md5]")
 	verbose := flag.Bool("v", false, "Verbose output")
 	b.AddHeader = flag.String("header", "", "Additional headers for bag-info.txt. Expects path to json file")
@@ -102,6 +103,10 @@ func main() {
 
 		if *tarit {
 			b.Tarit(*b.OutDir, *b.OutDir+".tar.gz")
+		}
+
+		if *zipit {
+			b.Zipit(*b.OutDir, *b.OutDir+".zip")
 		}
 
 		return
